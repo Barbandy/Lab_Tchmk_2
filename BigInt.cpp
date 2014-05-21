@@ -1,4 +1,9 @@
 #include "BigInt.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#pragma warning(disable: 4996)
+
 
 
 BigInt::BigInt()
@@ -19,6 +24,20 @@ BigInt::BigInt(char* str)
 	for(int i = SizeStr - 1; i >= sign; i--)
 		elements.push_back(str[i] - '0');
 	// TODO: проверка
+}
+
+BigInt::BigInt(int i)
+{
+   if(i < 0)
+	   this->sign = 1;
+   else
+		this->sign = 0;
+
+   this->elements.push_back(abs(i) % BASE);
+   i /= BASE;
+
+   if(i != 0)
+	   this->elements.push_back(abs(i));
 }
 
 BigInt::~BigInt()
@@ -68,37 +87,120 @@ int cmp(BigInt A, BigInt B)
 	return 0;
 }
 
-bool BigInt::operator>(BigInt B)
+bool  BigInt::getFrom_txt(const char* filename)
+{
+  FILE *fp = fopen(filename,"r");
+  if (!fp)
+		return false;
+  fseek(fp, 0, SEEK_END);
+	int fileSize = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+
+  char * str = new char[fileSize + 1]();
+  for(int i = 0; i < fileSize ; i++)
+  {
+	  str[i] = fgetc(fp) ;
+  }
+
+  fclose(fp);
+  BigInt number(str);
+  *this = number;
+
+  delete[]str;
+
+  return true;
+
+}
+
+bool BigInt::saveTo_txt(const char* filename)
+{
+ FILE *fp = fopen(filename,"w");
+  if (!fp)
+		return false;
+
+  char* str = this->getString();
+  int len = strlen(str);
+  fwrite(str, sizeof(char), len, fp);
+  fclose (fp);
+
+  delete[] str;
+
+  return true;
+
+}
+
+bool BigInt::getFrom_bin(const char* filename)
+{
+   FILE *fp = fopen(filename,"r+b");				 //на вход число в виде 0X000000
+  if (!fp)											 //знак или 1- "-" или 0
+		return false;								 //т.е "- "знак будет в виде 01000000...
+   fseek(fp, 0, SEEK_END);
+	int fileSize = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  BigInt number;
+
+   fread(&number.sign, sizeof(number.sign),1,fp);
+   	fileSize  /= sizeof(int);
+	number.elements.resize(fileSize - 1);
+	for(size_t i = 0 ; i < fileSize - 1 ; i ++)
+	{
+		fread(&number.elements[number.elements.size()- 1 - i], sizeof(int),1,fp);
+	}
+
+	*this = number;
+
+  fclose (fp);
+  return true;
+}
+
+bool BigInt::saveTo_bin(const char* filename)
+{												  //на выходе число в виде 0X000000
+   FILE *fp = fopen(filename,"w+b");
+  if (!fp)
+		return false;
+  BigInt number = *this;
+
+  fwrite(&number.sign,sizeof(number.sign), 1,fp);
+  for(size_t i = 0 ; i < number.elements.size() ; i ++)
+  {
+	  fwrite(&number.elements[ number.elements.size() - 1 - i],sizeof(int), 1,fp);
+  }
+
+  fclose (fp);
+  return true;
+}
+
+bool BigInt::operator>(const BigInt& B)
 {
 	return cmp(*this, B) > 0;
 }
 
-bool BigInt::operator<(BigInt B)
+bool BigInt::operator<(const BigInt& B)
 {
 	return cmp(*this, B) < 0;
 }
 
-bool BigInt::operator<=(BigInt B)
+bool BigInt::operator<=(const BigInt& B)
 {
 	return cmp(*this, B) <= 0;
 }
 
-bool BigInt::operator>=(BigInt B)
+bool BigInt::operator>=(const BigInt& B)
 {
 	return cmp(*this, B) >= 0;
 }
 
-bool BigInt::operator==(BigInt B)
+bool BigInt::operator==(const BigInt& B)
 {
 	return cmp(*this, B) == 0;
 }
 
-bool BigInt::operator!=(BigInt B)
+bool BigInt::operator!=(const BigInt& B)
 {
 	return cmp(*this, B) != 0;
 }
 
-BigInt BigInt::operator + (const BigInt & B) const
+BigInt BigInt::operator + (const BigInt& B) const
 {
 	BigInt A = *this;
 
@@ -157,7 +259,7 @@ BigInt BigInt::operator - (const BigInt& B) const
 
 }
 
-BigInt BigInt::operator* (const BigInt& B) const
+BigInt BigInt::operator * (const BigInt& B) const
 {
 	BigInt A = *this;
 	BigInt C;
@@ -181,6 +283,72 @@ BigInt BigInt::operator* (const BigInt& B) const
 	return C;
 }
 
+BigInt BigInt::operator / (const BigInt& B) const
+{
+	BigInt A = *this;
+	BigInt b = B;
+	BigInt C, current;
+	
+	if(b == 0)
+	{
+		throw DEV_BY_ZERO;
+		return BigInt(-1);
+	}
+	 
+	C.elements.resize(A.elements.size());
+	for(long long i = (A.elements.size() - 1); i >= 0; i --)
+	{
+		current.ShiftRight();
+		current.elements[0] = A.elements[i];
+		current.DelZeros();
+
+		int x = 0, l = 0, m = 0, r = BASE;
+
+		
+		while(l <=r)
+		{
+			m = (l + r) / 2;
+			BigInt t = b * m;
+
+			if(t <= current)
+			{
+			  x = m;
+			  l = m + 1;
+			}
+			else
+				r = m -1;
+		}
+		C.elements[i] = x;
+		current = current - b * x;
+	}
+	C.sign = A.sign != B.sign;
+
+	C.DelZeros();
+
+	return C;
+}
+
+BigInt BigInt::operator%(const BigInt& B)const
+{
+	BigInt C = *this - (*this / B) * B;
+
+	if(C.sign)
+		C += B;
+	return C;
+}
+
+BigInt BigInt::operator ^ (const BigInt& B) const
+{
+	BigInt a = *this, b = B, c = 1;
+
+	while(b != 0)
+	{
+	   c *= a;
+	   b--;
+	}
+	return c;
+}
+
 void BigInt::DelZeros()
 {
 	while (this->elements.size() > 1 && this->elements.back() == 0)
@@ -189,6 +357,20 @@ void BigInt::DelZeros()
 		this->sign = 0;
 
 
+}
+
+void BigInt::ShiftRight()
+{
+	if(this->elements.size() == 0)
+	{
+		this->elements.push_back(0);
+		return;
+	}
+
+	this->elements.push_back(this->elements[this->elements.size() - 1]);
+	for(size_t i = this->elements.size() - 2; i > 0; i--)
+		this->elements[i] = this->elements[i - 1];
+	this->elements[0] = 0;
 }
 
 BigInt BigInt::operator +=(const BigInt& B)
@@ -201,25 +383,25 @@ BigInt BigInt::operator -=(const BigInt& B)
 	return *this = *this - B;
 }
 
-//BigInt BigInt::operator *=(const BigInt& B)
-//{
-//	return *this = *this * B;
-//}
-//
-//BigInt BigInt::operator /=(const BigInt& B)
-//{
-//	return *this = *this / B;
-//}
-//
-//BigInt BigInt::operator %=(const BigInt& B)
-//{
-//	return *this = *this % B;
-//}
-//
-//BigInt BigInt::operator ^=(const BigInt& B)
-//{
-//	return *this = *this ^ B;
-//}
+BigInt BigInt::operator *=(const BigInt& B)
+{
+	return *this = *this * B;
+}
+
+BigInt BigInt::operator /=(const BigInt& B)
+{
+	return *this = *this / B;
+}
+
+BigInt BigInt::operator %=(const BigInt& B)
+{
+	return *this = *this % B;
+}
+
+BigInt BigInt::operator ^=(const BigInt& B)
+{
+	return *this = *this ^ B;
+}
 
 BigInt BigInt::operator -() const
 {
@@ -230,28 +412,28 @@ BigInt BigInt::operator -() const
 	return temp;
 }
 
-//BigInt BigInt::operator ++(int)
-//{
-//	BigInt old = *this;
-//	*this = *this + 1;
-//	return old;
-//}
-//
-//BigInt BigInt::operator ++()
-//{
-//	*this = *this + 1;
-//	return *this;
-//}
-//
-//BigInt BigInt::operator --(int)
-//{
-//	BigInt old = *this;
-//	*this = *this - 1;
-//	return old;
-//}
-//
-//BigInt BigInt::operator --()
-//{
-//	*this = *this - 1;
-//	return *this;
-//}
+BigInt BigInt::operator ++(int)
+{
+	BigInt old = *this;
+	*this = *this + 1;
+	return old;
+}
+
+BigInt BigInt::operator ++()
+{
+	*this = *this + 1;
+	return *this;
+}
+
+BigInt BigInt::operator --(int)
+{
+	BigInt old = *this;
+	*this = *this - 1;
+	return old;
+}
+
+BigInt BigInt::operator --()
+{
+	*this = *this - 1;
+	return *this;
+}

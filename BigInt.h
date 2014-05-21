@@ -1,5 +1,6 @@
 #pragma once
 #define BASE 10
+#define DEV_BY_ZERO 1
 #include <iostream>
 #include <vector>
 using namespace std;
@@ -9,15 +10,22 @@ class BigInt
 public:
 	BigInt();
 	BigInt(char* str);
+	BigInt(int i);
 	~BigInt();
 
 	char* getString();
-	bool operator > (BigInt B);
-	bool operator < (BigInt B);
-	bool operator <= (BigInt B);
-	bool operator >= (BigInt B);
-	bool operator == (BigInt B);
-	bool operator != (BigInt B);
+
+	bool getFrom_txt(const char* filename);
+	bool saveTo_txt(const char* filename);
+	bool saveTo_bin(const char* filename);
+	bool getFrom_bin(const char* filename);
+
+	bool operator > (const BigInt& B);
+	bool operator < (const BigInt& B);
+	bool operator <= (const BigInt& B);
+	bool operator >= (const BigInt& B);
+	bool operator == (const BigInt& B);
+	bool operator != (const BigInt& B);
 
 	BigInt operator +(const BigInt& B) const;	
 	BigInt operator -(const BigInt& B) const;	
@@ -42,8 +50,11 @@ public:
 private:
 	vector<int> elements;
 	int sign;
-	void DelZeros();
-	friend int cmp(BigInt A, BigInt B);
+
+	void DelZeros();	
+	void ShiftRight();	
+
+	friend int cmp(BigInt A, BigInt B);	
 
 };
 
