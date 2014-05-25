@@ -107,7 +107,7 @@ bool actions(BigInt& a,char operation,BigInt& b, BigInt& c,BigInt mod)
    return false;
   }
 
-  else if(mod > 0)
+  else if(mod > 0 && operation != '^')
   {
 	a %= mod;
 	b %= mod;
@@ -156,6 +156,8 @@ bool actions(BigInt& a,char operation,BigInt& b, BigInt& c,BigInt mod)
   else if(operation == '^')
   {
 	c = a ^ b;
+	if(mod > 0)
+	c%=mod;
 	return true;
   }
 
